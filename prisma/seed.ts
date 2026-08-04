@@ -95,16 +95,30 @@ async function main() {
     create: { id: id(), code: 'CLT-001', name: 'PT Tambang Nusantara Jaya', iupNo: 'IUP-0001-2020', kttName: 'Ir. Bambang Wijaya' }
   });
 
+  const client2 = await db.client.upsert({
+    where: { code: 'CLT-002' },
+    update: {},
+    create: { id: id(), code: 'CLT-002', name: 'PT Sifang Mining Indonesia', iupNo: 'IUP-0002-2021', kttName: 'Ir. Hendra Wijaya' }
+  });
+
   const site = await db.site.upsert({
     where: { clientId_code: { clientId: client.id, code: 'SITE-A' } },
     update: {},
     create: { id: id(), clientId: client.id, code: 'SITE-A', name: 'Site Alpha' }
   });
 
+  const site2 = await db.site.upsert({
+    where: { clientId_code: { clientId: client2.id, code: 'SITE-B' } },
+    update: {},
+    create: { id: id(), clientId: client2.id, code: 'SITE-B', name: 'Site Beta' }
+  });
+
   const location = await db.location.create({
     data: { id: id(), siteId: site.id, name: 'Front Pit Alpha 1', areaType: 'FRONT' }
   });
   await db.location.create({ data: { id: id(), siteId: site.id, name: 'Workshop Utama', areaType: 'WORKSHOP' } });
+  await db.location.create({ data: { id: id(), siteId: site2.id, name: 'Front Pit Beta 1', areaType: 'FRONT' } });
+  await db.location.create({ data: { id: id(), siteId: site2.id, name: 'Workshop Beta', areaType: 'WORKSHOP' } });
 
   const equipment = await db.equipment.upsert({
     where: { unitCode: 'EX-001' },
@@ -139,7 +153,7 @@ async function main() {
     { role: 'AUD', name: 'Rudi Hartono (Auditor)', nik: '0000000007', email: 'audit@prisma.local' }
   ];
 
-  const defaultPassword = process.env.SEED_SO_PASSWORD ?? 'ChangeMe123!';
+  const defaultPassword = process.env.SEED_SO_PASSWORD ?? '123';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
   for (const r of roleSeeds) {
