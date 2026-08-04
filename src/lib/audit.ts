@@ -6,7 +6,7 @@ interface AuditInput {
   role?: string | null;
   entity: string;
   entityId: string;
-  action: 'CREATE' | 'UPDATE' | 'TRANSITION' | 'VOID' | 'EXPORT';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSITION' | 'VOID' | 'EXPORT';
   before?: unknown;
   after?: unknown;
   reason?: string;
