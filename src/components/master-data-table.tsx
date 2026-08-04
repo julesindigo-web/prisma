@@ -16,13 +16,13 @@ type Column = {
 
 type Row = Record<string, unknown> & { id: string };
 
+type ActionResult = { error?: string } | void;
+
 type Props = {
   columns: Column[];
   rows: Row[];
-  action: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
-  hiddenFields?: Record<string, string>;
-  title?: string;
+  action: (formData: FormData) => Promise<ActionResult>;
+  deleteAction: (formData: FormData) => Promise<ActionResult>;
 };
 
 function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
@@ -34,32 +34,50 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   }, obj);
 }
 
-export default function MasterDataTable({ columns, rows, action, deleteAction, hiddenFields }: Props) {
+export default function MasterDataTable({ columns, rows, action, deleteAction }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
   const editableCols = columns.filter((c) => c.editable !== false);
+  const hiddenCols = columns.filter((c) => c.editable === false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setError(null);
     const fd = new FormData(e.currentTarget);
-    await action(fd);
+    const result = await action(fd);
+    if (result && typeof result === 'object' && 'error' in result && result.error) {
+      setError(result.error as string);
+      return;
+    }
     setEditingId(null);
     router.refresh();
   }
 
   async function handleDelete(id: string) {
+    setError(null);
     const fd = new FormData();
     fd.set('id', id);
-    await deleteAction(fd);
+    const result = await deleteAction(fd);
+    if (result && typeof result === 'object' && 'error' in result && result.error) {
+      setError(result.error as string);
+      return;
+    }
     setDeletingId(null);
     router.refresh();
   }
 
   return (
     <div className="overflow-x-auto">
+      {error && (
+        <div className="mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:underline">Tutup</button>
+        </div>
+      )}
       <table className="w-full text-left text-xs">
         <thead className="text-graphite/50">
           <tr>
@@ -76,8 +94,9 @@ export default function MasterDataTable({ columns, rows, action, deleteAction, h
                 <td colSpan={columns.length + 1} className="py-2">
                   <form ref={formRef} onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2">
                     <input type="hidden" name="id" value={row.id} />
-                    {hiddenFields && Object.entries(hiddenFields).map(([key, value]) => (
-                      <input key={key} type="hidden" name={key} value={value} />
+                    {/* Non-editable columns (FKs) must be sent as hidden inputs */}
+                    {hiddenCols.map((col) => (
+                      <input key={col.key} type="hidden" name={col.key} value={String(row[col.key] ?? '')} />
                     ))}
                     {editableCols.map((col) => (
                       <div key={col.key} className="flex flex-col">
