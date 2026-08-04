@@ -98,7 +98,7 @@ async function main() {
   const client2 = await db.client.upsert({
     where: { code: 'CLT-002' },
     update: {},
-    create: { id: id(), code: 'CLT-002', name: 'PT Sifang Mining Indonesia', iupNo: 'IUP-0002-2021', kttName: 'Ir. Hendra Wijaya' }
+    create: { id: id(), code: 'CLT-002', name: 'PT Sifang Mining Indonesia', iupNo: null, kttName: 'Zia Ulfadlah Idris' }
   });
 
   const site = await db.site.upsert({
@@ -110,15 +110,15 @@ async function main() {
   const site2 = await db.site.upsert({
     where: { clientId_code: { clientId: client2.id, code: 'SITE-B' } },
     update: {},
-    create: { id: id(), clientId: client2.id, code: 'SITE-B', name: 'Site Beta' }
+    create: { id: id(), clientId: client2.id, code: 'SITE-B', name: 'Site Sarimukti' }
   });
 
   const location = await db.location.create({
     data: { id: id(), siteId: site.id, name: 'Front Pit Alpha 1', areaType: 'FRONT' }
   });
   await db.location.create({ data: { id: id(), siteId: site.id, name: 'Workshop Utama', areaType: 'WORKSHOP' } });
-  await db.location.create({ data: { id: id(), siteId: site2.id, name: 'Front Pit Beta 1', areaType: 'FRONT' } });
-  await db.location.create({ data: { id: id(), siteId: site2.id, name: 'Workshop Beta', areaType: 'WORKSHOP' } });
+  await db.location.create({ data: { id: id(), siteId: site2.id, name: 'Front Pit Sarimukti', areaType: 'FRONT' } });
+  await db.location.create({ data: { id: id(), siteId: site2.id, name: 'Workshop Sarimukti', areaType: 'WORKSHOP' } });
 
   const equipment = await db.equipment.upsert({
     where: { unitCode: 'EX-001' },

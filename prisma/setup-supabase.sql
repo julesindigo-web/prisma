@@ -176,17 +176,17 @@ INSERT INTO "RclConstant" ("id","key","label","value","citation","status","creat
 -- Demo client + site
 INSERT INTO "Client" ("id","code","name","iupNo","kttName","createdAt","updatedAt") VALUES
 ('c001','CLT-001','PT Tambang Nusantara Jaya','IUP-0001-2020','Ir. Bambang Wijaya',NOW(),NOW()),
-('c002','CLT-002','PT Sifang Mining Indonesia','IUP-0002-2021','Ir. Hendra Wijaya',NOW(),NOW());
+('c002','CLT-002','PT Sifang Mining Indonesia',NULL,'Zia Ulfadlah Idris',NOW(),NOW());
 
 INSERT INTO "Site" ("id","clientId","code","name","createdAt","updatedAt") VALUES
 ('s001','c001','SITE-A','Site Alpha',NOW(),NOW()),
-('s002','c002','SITE-B','Site Beta',NOW(),NOW());
+('s002','c002','SITE-B','Site Sarimukti',NOW(),NOW());
 
 INSERT INTO "Location" ("id","siteId","name","areaType","active") VALUES
 ('l001','s001','Front Pit Alpha 1','FRONT',true),
 ('l002','s001','Workshop Utama','WORKSHOP',true),
-('l003','s002','Front Pit Beta 1','FRONT',true),
-('l004','s002','Workshop Beta','WORKSHOP',true);
+('l003','s002','Front Pit Sarimukti','FRONT',true),
+('l004','s002','Workshop Sarimukti','WORKSHOP',true);
 
 -- Equipment
 INSERT INTO "Equipment" ("id","unitCode","type","make","model","status") VALUES
