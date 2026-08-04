@@ -180,13 +180,13 @@ INSERT INTO "Client" ("id","code","name","iupNo","kttName","createdAt","updatedA
 
 INSERT INTO "Site" ("id","clientId","code","name","createdAt","updatedAt") VALUES
 ('s001','c001','SITE-A','Site Alpha',NOW(),NOW()),
-('s002','c002','SITE-B','Site Sarimukti',NOW(),NOW());
+('s002','c002','SITE-B','Site Beta',NOW(),NOW());
 
 INSERT INTO "Location" ("id","siteId","name","areaType","active") VALUES
 ('l001','s001','Front Pit Alpha 1','FRONT',true),
 ('l002','s001','Workshop Utama','WORKSHOP',true),
-('l003','s002','Front Pit Sarimukti','FRONT',true),
-('l004','s002','Workshop Sarimukti','WORKSHOP',true);
+('l003','s002','Front Pit Beta','FRONT',true),
+('l004','s002','Workshop Beta','WORKSHOP',true);
 
 -- Equipment
 INSERT INTO "Equipment" ("id","unitCode","type","make","model","status") VALUES

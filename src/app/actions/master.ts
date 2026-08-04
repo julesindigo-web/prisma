@@ -252,8 +252,10 @@ export async function updateEquipmentAction(formData: FormData) {
 
 function humanizeConstraintError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
-  if (msg.includes('Foreign key constraint failed')) return 'Data masih digunakan oleh record lain. Hapus data terkait terlebih dahulu.';
-  if (msg.includes('Unique constraint failed')) return 'Data dengan kode/nama yang sama sudah ada.';
+  // Prisma P2003 = foreign key constraint failed
+  if (msg.includes('Foreign key constraint failed') || msg.includes('P2003')) return 'Data masih digunakan oleh record lain. Hapus data terkait terlebih dahulu.';
+  // Prisma P2002 = unique constraint failed
+  if (msg.includes('Unique constraint failed') || msg.includes('P2002')) return 'Data dengan kode/nama yang sama sudah ada.';
   return 'Terjadi kesalahan database. Silakan coba lagi.';
 }
 
