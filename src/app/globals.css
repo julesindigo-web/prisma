@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-porcelain text-graphite antialiased;
+  }
+}
+
+@layer components {
+  .prisma-card {
+    @apply rounded-prisma border border-graphite/10 bg-white shadow-sm;
+  }
+  .prisma-signature {
+    font-family: 'Cormorant Garamond', 'Fraunces', serif;
+    font-style: italic;
+    color: #C8A24B;
+  }
+  .prisma-monogram {
+    color: #C8A24B;
+    opacity: 0.55;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-graphite { @apply bg-graphite/10 text-graphite; }
+  .badge-mineral { @apply bg-mineral/10 text-mineral; }
+  .badge-signal { @apply bg-signal/10 text-signal; }
+  .badge-amber { @apply bg-amber/20 text-amber; }
+  .badge-brass { @apply bg-brass/15 text-brass; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-prisma px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary { @apply btn bg-graphite text-porcelain hover:bg-graphite/90; }
+  .btn-secondary { @apply btn border border-graphite/20 bg-white hover:bg-graphite/5; }
+  .btn-danger { @apply btn bg-signal text-white hover:bg-signal/90; }
+  .btn-brass { @apply btn bg-brass text-graphite hover:bg-brass/90; }
+
+  .field-label {
+    @apply mb-1 block text-sm font-medium text-graphite/80;
+  }
+  .field-input {
+    @apply w-full rounded-prisma border border-graphite/20 bg-white px-3 py-2 text-sm focus:border-mineral focus:outline-none focus:ring-1 focus:ring-mineral;
+  }
+  .field-hint {
+    @apply mt-1 text-xs text-graphite/50;
+  }
+  .field-error {
+    @apply mt-1 text-xs text-signal;
+  }
+}

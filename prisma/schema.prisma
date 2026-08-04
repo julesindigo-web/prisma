@@ -1,0 +1,664 @@
+// PRISMA Safety Management System — v1.0 "Adiyoga"
+// dikonsep & dirancang oleh Priastama Adiyoga
+// Scope: M1-M7, M15-M19 per Blueprint v3.0 CANONICAL §14 roadmap (v1.0 release)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §6 ROLE & IZIN
+// ─────────────────────────────────────────────────────────────────────────
+enum Role {
+  PEKERJA
+  PENGAWAS
+  HSE
+  PJO
+  MGMT
+  SO
+  AUD
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §0.2 SSOT ENUM — controlled vocabulary, versioned, never hard-deleted
+// ─────────────────────────────────────────────────────────────────────────
+model EnumMaster {
+  id               String   @id
+  groupKey         String // e.g. "mgmt_category", "ind_class", "body_part"
+  key              String
+  labelId          String
+  labelEn          String?
+  parentKey        String?
+  version          Int      @default(1)
+  regulatory       Boolean  @default(false)
+  sourceCitation   String?
+  activeFrom       DateTime @default(now())
+  activeTo         DateTime?
+  status           String   @default("ACTIVE") // ACTIVE | RETIRED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([groupKey, key, version])
+  @@index([groupKey, status])
+}
+
+// §0.2 RCL — Regulation Change Library, versioned constants with citation
+model RclConstant {
+  id               String   @id
+  key              String   @unique // e.g. "INVESTIGATION_DEADLINE_HOURS"
+  label            String
+  value            String // stored as string, parsed per-type by consumer
+  citation         String
+  urlJdih          String?
+  sha256Doc        String?
+  tglVerifikasi    DateTime?
+  verifier         String?
+  status           String   @default("PENDING_TRANSCRIPTION") // VERIFIED | PENDING_TRANSCRIPTION
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Monthly global sequencer for human-readable IDs: PRS-{ENT}-{YYYYMM}-{####}
+model Sequencer {
+  id        String @id
+  entity    String // INC, CAP, INS, PRW, PTW, RPT
+  yearMonth String // YYYYMM
+  lastValue Int    @default(0)
+
+  @@unique([entity, yearMonth])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §3.1 MASTER DATA
+// ─────────────────────────────────────────────────────────────────────────
+model Client {
+  id               String   @id
+  code             String   @unique
+  name             String
+  iupNo            String?
+  kttName          String?
+  reportTemplateRef String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sites            Site[]
+  workerDeployments WorkerDeployment[]
+  equipmentDeployments EquipmentDeployment[]
+  incidents        Incident[]
+  manHoursInputs   ManHoursInput[]
+  regReports       RegReport[]
+}
+
+model Site {
+  id        String   @id
+  clientId  String
+  code      String
+  name      String
+  tz        String   @default("Asia/Jakarta")
+  shifts    Json     @default("[{\"code\":\"DAY\",\"label\":\"Day\",\"start\":\"07:00\",\"end\":\"15:00\"},{\"code\":\"SWING\",\"label\":\"Swing\",\"start\":\"15:00\",\"end\":\"23:00\"},{\"code\":\"NIGHT\",\"label\":\"Night\",\"start\":\"23:00\",\"end\":\"07:00\"}]")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client            Client    @relation(fields: [clientId], references: [id])
+  locations         Location[]
+  workerDeployments WorkerDeployment[]
+  equipmentDeployments EquipmentDeployment[]
+  incidents         Incident[]
+  inspectionRecords InspectionRecord[]
+  proactiveReports  ProactiveReport[]
+  manHoursInputs    ManHoursInput[]
+  kpiSnapshots      KpiSnapshot[]
+
+  @@unique([clientId, code])
+}
+
+model Location {
+  id       String  @id
+  siteId   String
+  name     String
+  areaType String // enum_master group "area_type"
+  active   Boolean @default(true)
+
+  site              Site               @relation(fields: [siteId], references: [id])
+  incidents         Incident[]
+  inspectionRecords InspectionRecord[]
+  proactiveReports  ProactiveReport[]
+}
+
+model Worker {
+  id         String    @id
+  nik        String    @unique
+  name       String
+  dept       String?
+  position   String?
+  empStatus  String // enum_master "emp_status"
+  hireDate   DateTime?
+  dob        DateTime?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  deployments    WorkerDeployment[]
+  certifications Certification[]
+  userAccount    UserAccount?
+  victimOf       IncidentVictim[]
+  witnessOf      IncidentWitness[]
+  capaPic        Capa[]             @relation("CapaPic")
+}
+
+model WorkerDeployment {
+  id       String    @id
+  workerId String
+  clientId String
+  siteId   String
+  startD   DateTime
+  endD     DateTime?
+  roleAtSite String?
+  status   String    @default("ACTIVE")
+
+  worker Worker @relation(fields: [workerId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+  site   Site   @relation(fields: [siteId], references: [id])
+}
+
+model Certification {
+  id       String    @id
+  workerId String
+  type     String
+  no       String?
+  issuer   String?
+  expiryD  DateTime?
+  file     String?
+
+  worker Worker @relation(fields: [workerId], references: [id])
+}
+
+model Equipment {
+  id        String   @id
+  unitCode  String   @unique
+  type      String
+  make      String?
+  model     String?
+  year      Int?
+  status    String   @default("AKTIF") // equipment_status
+
+  deployments EquipmentDeployment[]
+  maintenanceEvents MaintenanceEvent[]
+  incidentLinks IncidentEquipment[]
+  inspectionRecords InspectionRecord[]
+}
+
+model EquipmentDeployment {
+  id          String    @id
+  equipmentId String
+  clientId    String
+  siteId      String
+  startD      DateTime
+  endD        DateTime?
+  status      String    @default("ACTIVE")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+  client    Client    @relation(fields: [clientId], references: [id])
+  site      Site      @relation(fields: [siteId], references: [id])
+}
+
+model MaintenanceEvent {
+  id          String   @id
+  equipmentId String
+  dt          DateTime
+  type        String
+  desc        String?
+  source      String   @default("MANUAL")
+  woRef       String?
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+}
+
+model UserAccount {
+  id            String   @id
+  workerId      String   @unique
+  email         String   @unique
+  passwordHash  String
+  role          Role
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  worker Worker @relation(fields: [workerId], references: [id])
+
+  auditEvents  AuditEvent[]
+  ledInvestigations Investigation[] @relation("InvestigationLead")
+  verifiedCapas Capa[] @relation("CapaVerifier")
+  performedInspections InspectionRecord[] @relation("InspectionPerformer")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §3.2 INSIDEN & INVESTIGASI — §5 State machine
+// ─────────────────────────────────────────────────────────────────────────
+enum IncidentStatus {
+  DRAFT
+  SUBMITTED
+  INVESTIGATING
+  REPORT_DRAFT
+  HSE_REVIEW
+  FINAL
+  REPORTED
+  CLOSED
+  VOID
+}
+
+model Incident {
+  id             String         @id
+  humanNo        String         @unique
+  clientId       String
+  siteId         String
+  locationId     String?
+  title          String
+  incidentDt     DateTime
+  shift          String
+  workDayNo      Int?
+  workdayRefWorkerId String?
+  weather        String?
+  regType        String // KT | KB | PAK | NA
+  kbSpecCode     String?
+  mgmtCategory   String // INJ | PD | ENV | PB | MECH
+  indClass       String // NM | FAI | MTI | RWTC | LTI | FAT | PD
+  regClass       String // RINGAN | BERAT | MENINGGAL | KB_SPEC | PAK | NA | PENDING_TRANSCRIPTION
+  potentialSev   Int // 1..5
+  hipo           Boolean        @default(false) // auto: sev >= 4
+  description    String
+  preservation   Json           @default("{}")
+  supervisorId   String?
+  picId          String?
+  statsIncluded  Boolean        @default(true)
+  duplicateOf    String?
+  amendmentRef   String?
+  voidReason     String?
+  status         IncidentStatus @default(DRAFT)
+  createdBy      String
+  deviceTs       DateTime?
+  gpsLat         Float?
+  gpsLng         Float?
+  gpsAccuracy    Float?
+  version        Int            @default(1)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id])
+  site     Site     @relation(fields: [siteId], references: [id])
+  location Location? @relation(fields: [locationId], references: [id])
+
+  victims     IncidentVictim[]
+  witnesses   IncidentWitness[]
+  timeline    IncidentTimeline[]
+  evidence    IncidentEvidence[]
+  equipmentLinks IncidentEquipment[]
+  investigation Investigation?
+  capas       Capa[]
+  slaEvents   SlaEvent[]
+  amendments  Amendment[]
+
+  @@index([clientId, siteId, status])
+  @@index([incidentDt])
+}
+
+model IncidentVictim {
+  id         String  @id
+  incidentId String
+  workerId   String
+  expY       Int     @default(0)
+  expM       Int     @default(0) // 0..11 (V-16)
+  bodyPart   String?
+  injuryType String?
+  outcome    String?
+  lostDays   Int     @default(0) // V-03/04/06
+  ongoing    Boolean @default(false)
+  facility   String?
+  restricted Boolean @default(false)
+
+  incident Incident @relation(fields: [incidentId], references: [id])
+  worker   Worker   @relation(fields: [workerId], references: [id])
+}
+
+model IncidentWitness {
+  id         String  @id
+  incidentId String
+  workerId   String
+  kind       String // DIRECT | INDIRECT
+  statement  String?
+  file       String?
+
+  incident Incident @relation(fields: [incidentId], references: [id])
+  worker   Worker   @relation(fields: [workerId], references: [id])
+}
+
+model IncidentTimeline {
+  id         String   @id
+  incidentId String
+  ts         DateTime
+  event      String
+
+  incident Incident @relation(fields: [incidentId], references: [id])
+}
+
+model IncidentEvidence {
+  id         String   @id
+  incidentId String
+  kind       String // FOTO | VIDEO | DOK | WAWANCARA
+  file       String
+  sha256     String?
+  gpsLat     Float?
+  gpsLng     Float?
+  ts         DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id])
+}
+
+model IncidentEquipment {
+  id          String @id
+  incidentId  String
+  equipmentId String
+
+  incident  Incident  @relation(fields: [incidentId], references: [id])
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+}
+
+enum InvestigationStatus {
+  OPEN
+  REPORT_DRAFT
+  HSE_REVIEW
+  FINAL
+}
+
+model Investigation {
+  id           String              @id
+  incidentId   String              @unique
+  method       String              @default("SCAT") // SCAT | SCAT_ICAM
+  startDt      DateTime
+  leadId       String
+  members      Json                @default("[]")
+  rootCause    String?
+  findings     String?
+  qualityReview Json               @default("{}")
+  status       InvestigationStatus @default(OPEN)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  incident Incident   @relation(fields: [incidentId], references: [id])
+  lead     UserAccount @relation("InvestigationLead", fields: [leadId], references: [id])
+  scatEntries ScatEntry[]
+}
+
+model ScatEntry {
+  id              String @id
+  investigationId String
+  phase           String
+  code            String
+  label           String
+  note            String
+
+  investigation Investigation @relation(fields: [investigationId], references: [id])
+}
+
+model Amendment {
+  id           String   @id
+  targetEntity String
+  targetId     String
+  rev          Int
+  delta        Json
+  reason       String
+  requester    String
+  approver     String?
+  dt           DateTime @default(now())
+
+  incident   Incident? @relation(fields: [incidentId], references: [id])
+  incidentId String?
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §3.3 CAPA
+// ─────────────────────────────────────────────────────────────────────────
+enum CapaStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_VERIFICATION
+  CLOSED
+  REOPENED
+}
+
+model Capa {
+  id            String     @id
+  humanNo       String     @unique
+  source        String // INCIDENT | INSPECTION | PROACTIVE | AUDIT
+  sourceRef     String?
+  incidentId    String?
+  action        String
+  controlType   String // ELIM | SUB | ENG | ADM | APD
+  priority      String // P1 | P2 | P3
+  picId         String
+  dueD          DateTime
+  status        CapaStatus @default(OPEN)
+  progress      Int        @default(0)
+  evidence      Json       @default("[]")
+  verifierId    String?
+  verifyDt      DateTime?
+  verifyResult  String?
+  reopenCount   Int        @default(0)
+  recurrenceFlag Boolean   @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  incident Incident?   @relation(fields: [incidentId], references: [id])
+  pic      Worker      @relation("CapaPic", fields: [picId], references: [id])
+  verifier UserAccount? @relation("CapaVerifier", fields: [verifierId], references: [id])
+  slaEvents SlaEvent[]
+
+  @@index([status, dueD])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §3.3 INSPEKSI / P2H
+// ─────────────────────────────────────────────────────────────────────────
+model InspectionTemplate {
+  id      String @id
+  scope   String // EQUIPMENT | AREA | GENERAL
+  name    String
+  version Int    @default(1)
+  items   Json // [{code, question, critical}]
+  active  Boolean @default(true)
+
+  records InspectionRecord[]
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  DONE
+  FOLLOW_UP
+  CLOSED
+}
+
+model InspectionRecord {
+  id          String           @id
+  humanNo     String           @unique
+  templateId  String
+  equipmentId String?
+  siteId      String
+  locationId  String?
+  performerId String
+  dt          DateTime
+  status      InspectionStatus @default(SCHEDULED)
+  followupRef String?
+  createdAt   DateTime         @default(now())
+
+  template  InspectionTemplate @relation(fields: [templateId], references: [id])
+  equipment Equipment?         @relation(fields: [equipmentId], references: [id])
+  site      Site               @relation(fields: [siteId], references: [id])
+  location  Location?          @relation(fields: [locationId], references: [id])
+  performer UserAccount        @relation("InspectionPerformer", fields: [performerId], references: [id])
+  items     InspectionItem[]
+}
+
+model InspectionItem {
+  id       String @id
+  recordId String
+  itemCode String
+  result   String // OK | DEFECT | NA
+  note     String?
+  photo    String?
+  sev      Int?
+
+  record InspectionRecord @relation(fields: [recordId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §3.3 PROAKTIF
+// ─────────────────────────────────────────────────────────────────────────
+enum ProactiveStatus {
+  NEW
+  ACKNOWLEDGED
+  ACTIONED
+  CLOSED
+}
+
+model ProactiveReport {
+  id            String          @id
+  humanNo       String          @unique
+  reporterId    String?
+  anonymous     Boolean         @default(false)
+  sealedContact String?
+  siteId        String
+  locationId    String?
+  category      String
+  desc          String
+  photo         String?
+  suggestion    String?
+  status        ProactiveStatus @default(NEW)
+  responseDt    DateTime?
+  slaFlag       Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+
+  site     Site      @relation(fields: [siteId], references: [id])
+  location Location? @relation(fields: [locationId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// §3.5 PELAPORAN / KPI / SISTEM
+// ─────────────────────────────────────────────────────────────────────────
+model RegReport {
+  id          String   @id
+  kind        String // DISNAKER_03 | BULANAN_1806 | CLIENT | REGISTER_INTERNAL
+  clientId    String?
+  period      String // YYYY-MM
+  snapshot    Json
+  file        String?
+  status      String   @default("DRAFT") // DRAFT | REVIEWED | SENT
+  sentDt      DateTime?
+  channel     String?
+  recipient   String?
+  receiptRef  String?
+  createdAt   DateTime @default(now())
+
+  client Client? @relation(fields: [clientId], references: [id])
+}
+
+model KpiSnapshot {
+  id              String   @id
+  scope           String // site id or "HQ"
+  siteId          String?
+  period          String // YYYY-MM
+  manHours        Float    @default(0)
+  fr              Float    @default(0)
+  sr              Float    @default(0)
+  leading         Json     @default("{}")
+  methodologyNote String
+  rev             Int      @default(1)
+  createdAt       DateTime @default(now())
+
+  site Site? @relation(fields: [siteId], references: [id])
+}
+
+model ManHoursInput {
+  id         String   @id
+  siteId     String
+  clientId   String
+  period     String // YYYY-MM
+  hours      Float
+  headcount  Int
+  source     String   @default("MANUAL") // HR | MANUAL
+  approverId String?
+  createdAt  DateTime @default(now())
+
+  site   Site   @relation(fields: [siteId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model SlaEvent {
+  id           String    @id
+  entityType   String // INCIDENT | CAPA | PROACTIVE
+  entityId     String
+  kind         String // INVESTIGATION_DEADLINE | DISNAKER_REPORT | CAPA_DUE | PROACTIVE_RESPONSE
+  clockStart   DateTime
+  deadline     DateTime
+  status       String    @default("OPEN") // OPEN | MET | BREACHED
+  escalations  Json      @default("[]")
+  resolvedAt   DateTime?
+
+  incident   Incident? @relation(fields: [incidentId], references: [id])
+  incidentId String?
+  capa       Capa?     @relation(fields: [capaId], references: [id])
+  capaId     String?
+
+  @@index([status, deadline])
+}
+
+model NotificationLog {
+  id         String   @id
+  code       String // N-01..N-14
+  channel    String // IN_APP | EMAIL | WA
+  recipient  String
+  subject    String
+  body       String
+  entityType String?
+  entityId   String?
+  sentAt     DateTime @default(now())
+  read       Boolean  @default(false)
+}
+
+// §0.2-4 Immutable append-only audit log
+model AuditEvent {
+  id         String   @id
+  ts         DateTime @default(now())
+  actorId    String?
+  role       String?
+  entity     String
+  entityId   String
+  action     String // CREATE | UPDATE | TRANSITION | VOID | EXPORT
+  before     Json?
+  after      Json?
+  device     String?
+  gpsLat     Float?
+  gpsLng     Float?
+  reason     String?
+
+  actor UserAccount? @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([ts])
+}
+
+model ConflictQueue {
+  id         String   @id
+  entityType String
+  entityId   String
+  versions   Json
+  status     String   @default("OPEN") // OPEN | RESOLVED
+  resolver   String?
+  dt         DateTime @default(now())
+}
