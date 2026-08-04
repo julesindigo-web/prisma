@@ -11,6 +11,7 @@ type Column = {
   required?: boolean;
   placeholder?: string;
   editable?: boolean;
+  displayKey?: string;
 };
 
 type Row = Record<string, unknown> & { id: string };
@@ -20,10 +21,20 @@ type Props = {
   rows: Row[];
   action: (formData: FormData) => Promise<void>;
   deleteAction: (formData: FormData) => Promise<void>;
+  hiddenFields?: Record<string, string>;
   title?: string;
 };
 
-export default function MasterDataTable({ columns, rows, action, deleteAction }: Props) {
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce((acc: unknown, key: string) => {
+    if (acc && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj);
+}
+
+export default function MasterDataTable({ columns, rows, action, deleteAction, hiddenFields }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -65,6 +76,9 @@ export default function MasterDataTable({ columns, rows, action, deleteAction }:
                 <td colSpan={columns.length + 1} className="py-2">
                   <form ref={formRef} onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2">
                     <input type="hidden" name="id" value={row.id} />
+                    {hiddenFields && Object.entries(hiddenFields).map(([key, value]) => (
+                      <input key={key} type="hidden" name={key} value={value} />
+                    ))}
                     {editableCols.map((col) => (
                       <div key={col.key} className="flex flex-col">
                         <label className="text-[10px] text-graphite/50">{col.label}</label>
@@ -99,9 +113,12 @@ export default function MasterDataTable({ columns, rows, action, deleteAction }:
                 </td>
               ) : (
                 <>
-                  {columns.map((col) => (
-                    <td key={col.key} className="py-1 pr-4">{String(row[col.key] ?? '—')}</td>
-                  ))}
+                  {columns.map((col) => {
+                    const displayValue = col.displayKey
+                      ? String(getNestedValue(row as Record<string, unknown>, col.displayKey) ?? row[col.key] ?? '—')
+                      : String(row[col.key] ?? '—');
+                    return <td key={col.key} className="py-1 pr-4">{displayValue}</td>;
+                  })}
                   <td className="py-1 pr-4 flex gap-2">
                     <button onClick={() => setEditingId(row.id)} className="text-xs text-blue-600 hover:underline">Edit</button>
                     <button onClick={() => setDeletingId(row.id)} className="text-xs text-red-600 hover:underline">Hapus</button>

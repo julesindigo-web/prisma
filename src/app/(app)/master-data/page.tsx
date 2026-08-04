@@ -72,12 +72,12 @@ export default async function MasterDataPage() {
         {canAdmin ? (
           <MasterDataTable
             columns={[
-              { key: 'clientName', label: 'Client' },
+              { key: 'clientId', label: 'Client', displayKey: 'client.name', editable: false },
               { key: 'code', label: 'Kode' },
               { key: 'name', label: 'Nama' },
               { key: 'tz', label: 'Zona Waktu' }
             ]}
-            rows={sites.map((s) => ({ ...s, clientName: s.client.name }))}
+            rows={sites}
             action={updateSiteAction}
             deleteAction={deleteSiteAction}
           />
@@ -101,11 +101,11 @@ export default async function MasterDataPage() {
         {canAdmin ? (
           <MasterDataTable
             columns={[
-              { key: 'siteName', label: 'Site' },
+              { key: 'siteId', label: 'Site', displayKey: 'site.name', editable: false },
               { key: 'name', label: 'Nama' },
               { key: 'areaType', label: 'Tipe Area', type: 'select', options: ['WORKSHOP', 'HAULROAD', 'PARKIR', 'FRONT', 'PLANT', 'GUDANG', 'OFFICE', 'LAIN'] }
             ]}
-            rows={locations.map((l) => ({ ...l, siteName: l.site.name }))}
+            rows={locations}
             action={updateLocationAction}
             deleteAction={deleteLocationAction}
           />
